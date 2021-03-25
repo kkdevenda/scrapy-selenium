@@ -3,12 +3,12 @@
 from importlib import import_module
 
 from scrapy import signals
-from scrapy.exceptions import NotConfigured
+from scrapy.exceptions import NotConfigured, CloseSpider
 from scrapy.http import HtmlResponse
 from selenium.webdriver.support.ui import WebDriverWait
-
+from selenium.common.exceptions import WebDriverException
 from .http import SeleniumRequest
-
+import logging
 
 class SeleniumMiddleware:
     """Scrapy middleware handling the requests using selenium"""
@@ -30,7 +30,7 @@ class SeleniumMiddleware:
         command_executor: str
             Selenium remote server endpoint
         """
-
+        self.logger = logging.getLogger('scrapy_selenium')
         webdriver_base_path = f'selenium.webdriver.{driver_name}'
 
         driver_klass_module = import_module(f'{webdriver_base_path}.webdriver')
@@ -134,6 +134,13 @@ class SeleniumMiddleware:
             encoding='utf-8',
             request=request
         )
+    
+    def process_exception(self, request, exception, spider):
+        self.logger.exception(exception)
+        if isinstance(exception, WebDriverException):
+            raise CloseSpider(reason=f'Fatal Error in selenium webdriver')
+
+        return None
 
     def spider_closed(self):
         """Shutdown the driver when spider is closed"""
