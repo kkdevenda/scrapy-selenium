@@ -4,7 +4,7 @@ from importlib import import_module
 
 from scrapy import signals
 from scrapy.exceptions import NotConfigured, CloseSpider
-from scrapy.http import HtmlResponse
+from scrapy.http import HtmlResponse, Response
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import WebDriverException
 from .http import SeleniumRequest
@@ -136,14 +136,23 @@ class SeleniumMiddleware:
         )
     
     def process_exception(self, request, exception, spider):
-        self.logger.exception(exception)
+        # set `close_spider` instruction with `close_spider_message` in request meta for all the remaining middlewares downstream. These instructions are captured by `amazon_captcha_solver` middleware and if the instruction is to close the spider `amazon_captcha_solver` takes the necessary action by raising some form of exception
+        # Following are the reasons for doing so:
+        #1. You can not close a spider from within a middleware using `CloseSpider` https://github.com/scrapy/scrapy/issues/2578
+        #2. You can not raise another exception from within `process_exception` method of a middleware
+        #3. You can only return None, Request, or Response from within `process_exception` https://docs.scrapy.org/en/latest/topics/downloader-middleware.html#scrapy.downloadermiddlewares.DownloaderMiddleware.process_exception
+        request.meta.update({'close_spider': True, 'close_spider_reason': 'WebDriverException in scrapy_selenium'}) 
         if isinstance(exception, WebDriverException):
-            raise CloseSpider(reason=f'Fatal Error in selenium webdriver')
-
+            return Response(
+            request.url,
+            request=request
+            )
         return None
 
     def spider_closed(self):
         """Shutdown the driver when spider is closed"""
-
-        self.driver.quit()
+        try:    
+            self.driver.quit()
+        except WebDriverException as ex:
+            self.logger.info(f'Webdriver exception occurred while doing driver.quit() in spider_closed {ex}')
 
