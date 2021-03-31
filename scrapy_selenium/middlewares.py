@@ -7,7 +7,7 @@ from scrapy.exceptions import NotConfigured, CloseSpider
 from scrapy.http import HtmlResponse, Response
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import WebDriverException
-from urllib3.exceptions import MaxRetryError
+from urllib3.exceptions import MaxRetryError, ProtocolError
 from .http import SeleniumRequest
 import logging
 
@@ -69,6 +69,9 @@ class SeleniumMiddleware:
             except (MaxRetryError, WebDriverException) as mre:
                 self.logger.error(f"Unable to connect with remote webdriver because of {mre}")
                 # raise ScrapySeleniumInitError(f"Unable to connect with remote webdriver because of {mre}")
+                self.driver = None
+            except ProtocolError as pe:
+                self.logger.error(f"{pe}")
                 self.driver = None
 
     @classmethod
