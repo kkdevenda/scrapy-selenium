@@ -7,6 +7,7 @@ from scrapy.exceptions import NotConfigured, CloseSpider
 from scrapy.http import HtmlResponse, Response
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import WebDriverException
+from urllib3.exceptions import MaxRetryError
 from .http import SeleniumRequest
 import logging
 
@@ -62,8 +63,13 @@ class SeleniumMiddleware:
         elif command_executor is not None:
             from selenium import webdriver
             capabilities = driver_options.to_capabilities()
-            self.driver = webdriver.Remote(command_executor=command_executor,
+            try:
+                self.driver = webdriver.Remote(command_executor=command_executor,
                                            desired_capabilities=capabilities, proxy= proxy)
+            except (MaxRetryError, WebDriverException) as mre:
+                self.logger.error(f"Unable to connect with remote webdriver because of {mre}")
+                # raise ScrapySeleniumInitError(f"Unable to connect with remote webdriver because of {mre}")
+                self.driver = None
 
     @classmethod
     def from_crawler(cls, crawler):
@@ -101,6 +107,10 @@ class SeleniumMiddleware:
 
         if not isinstance(request, SeleniumRequest):
             return None
+
+        if self.driver is None:
+            request.meta.update({'close_spider': True, 'close_spider_reason': 'driver is empty perhaps because of connection error to selenium hub'})
+            return None 
 
         self.driver.get(request.url)
 
@@ -141,8 +151,8 @@ class SeleniumMiddleware:
         #1. You can not close a spider from within a middleware using `CloseSpider` https://github.com/scrapy/scrapy/issues/2578
         #2. You can not raise another exception from within `process_exception` method of a middleware
         #3. You can only return None, Request, or Response from within `process_exception` https://docs.scrapy.org/en/latest/topics/downloader-middleware.html#scrapy.downloadermiddlewares.DownloaderMiddleware.process_exception
-        request.meta.update({'close_spider': True, 'close_spider_reason': 'WebDriverException in scrapy_selenium'}) 
         if isinstance(exception, WebDriverException):
+            request.meta.update({'close_spider': True, 'close_spider_reason': 'WebDriverException in scrapy_selenium'}) 
             return Response(
             request.url,
             request=request
@@ -152,7 +162,8 @@ class SeleniumMiddleware:
     def spider_closed(self):
         """Shutdown the driver when spider is closed"""
         try:    
-            self.driver.quit()
+            if self.driver:
+                self.driver.quit()
         except WebDriverException as ex:
             self.logger.info(f'Webdriver exception occurred while doing driver.quit() in spider_closed {ex}')
 
