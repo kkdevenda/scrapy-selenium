@@ -88,11 +88,11 @@ class SeleniumMiddleware:
         browser_executable_path = crawler.settings.get('SELENIUM_BROWSER_EXECUTABLE_PATH')
         command_executor = crawler.settings.get('SELENIUM_COMMAND_EXECUTOR')
         driver_arguments = crawler.settings.get('SELENIUM_DRIVER_ARGUMENTS')
-        lpm_proxy_list = os.getenv('SELENIUM_PROXY').strip('][').split(',')
-        lpm_proxy = lpm_proxy_list[random.randint(0,len(lpm_proxy_list)-1)]
-        proxy = Proxy({'proxyType': 'MANUAL', 'httpProxy': lpm_proxy, 'sslProxy': lpm_proxy})
+        # lpm_proxy_list = os.getenv('SELENIUM_PROXY').strip('][').split(',')
+        # lpm_proxy = lpm_proxy_list[random.randint(0,len(lpm_proxy_list)-1)]
+        # proxy = Proxy({'proxyType': 'MANUAL', 'httpProxy': lpm_proxy, 'sslProxy': lpm_proxy})
 
-        # proxy = crawler.settings.get('SELENIUM_PROXY')
+        proxy = crawler.settings.get('SELENIUM_PROXY')
 
         if driver_name is None:
             raise NotConfigured('SELENIUM_DRIVER_NAME must be set')
