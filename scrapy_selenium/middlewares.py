@@ -10,6 +10,10 @@ from selenium.common.exceptions import WebDriverException
 from urllib3.exceptions import MaxRetryError, ProtocolError
 from .http import SeleniumRequest
 import logging
+import os
+import random
+from selenium.webdriver.common.proxy import Proxy
+
 
 class SeleniumMiddleware:
     """Scrapy middleware handling the requests using selenium"""
@@ -32,6 +36,7 @@ class SeleniumMiddleware:
             Selenium remote server endpoint
         """
         self.logger = logging.getLogger('scrapy_selenium')
+        
         webdriver_base_path = f'selenium.webdriver.{driver_name}'
 
         driver_klass_module = import_module(f'{webdriver_base_path}.webdriver')
@@ -83,7 +88,11 @@ class SeleniumMiddleware:
         browser_executable_path = crawler.settings.get('SELENIUM_BROWSER_EXECUTABLE_PATH')
         command_executor = crawler.settings.get('SELENIUM_COMMAND_EXECUTOR')
         driver_arguments = crawler.settings.get('SELENIUM_DRIVER_ARGUMENTS')
-        proxy = crawler.settings.get('SELENIUM_PROXY')
+        lpm_proxy_list = os.getenv('SELENIUM_PROXY').strip('][').split(',')
+        lpm_proxy = lpm_proxy_list[random.randint(0,len(lpm_proxy_list)-1)]
+        proxy = Proxy({'proxyType': 'MANUAL', 'httpProxy': lpm_proxy, 'sslProxy': lpm_proxy})
+
+        # proxy = crawler.settings.get('SELENIUM_PROXY')
 
         if driver_name is None:
             raise NotConfigured('SELENIUM_DRIVER_NAME must be set')
